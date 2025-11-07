@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Excel Multi Utility</title>
+    <link rel="stylesheet" href="taskpane.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    />
+  </head>
+  <body>
+    <div id="toolbar">
+      <button id="tab-calendar" class="active">カレンダー</button>
+      <button id="tab-sheet">シートナビ</button>
+    </div>
+
+    <div id="calendar-panel" class="panel"></div>
+    <div id="sheet-panel" class="panel hidden"></div>
+
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

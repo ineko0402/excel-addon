@@ -1,0 +1,43 @@
+body {
+    font-family: "Segoe UI", sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+}
+
+#toolbar {
+    display: flex;
+    background: #e4e4e4;
+    padding: 5px;
+}
+
+#toolbar button {
+    flex: 1;
+    border: none;
+    background: #ddd;
+    padding: 6px;
+    cursor: pointer;
+}
+
+#toolbar button.active {
+    background: #bbb;
+    font-weight: bold;
+}
+
+.panel {
+    padding: 10px;
+}
+
+.hidden {
+    display: none;
+}
+
+.sheet-item {
+    padding: 4px 8px;
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+}
+
+.sheet-item:hover {
+    background-color: #e8e8e8;
+}
