@@ -1,9 +1,9 @@
 {
-  "name": "office-addin-taskpane",
-  "version": "0.0.1",
+  "name": "excel-addon",
+  "version": "0.1.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OfficeDev/Office-Addin-TaskPane.git"
+    "url": "https://github.com/ineko0402/excel-addon.git"
   },
   "license": "MIT",
   "config": {
@@ -23,7 +23,8 @@
     "start": "office-addin-debugging start manifest.xml",
     "stop": "office-addin-debugging stop manifest.xml",
     "validate": "office-addin-manifest validate manifest.xml",
-    "watch": "webpack --mode development --watch"
+    "watch": "webpack --mode development --watch",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "core-js": "^3.36.0",
