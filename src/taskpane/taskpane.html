@@ -48,6 +48,15 @@
     >
       カレンダー
     </button>
+
+    <button
+      id="tab-postal"
+      class="tab-button"
+      type="button"
+      aria-selected="false"
+    >
+      郵便番号
+    </button>
   </nav>
 
   <main class="app-main">
@@ -86,6 +95,32 @@
       <p class="description">
         複数のセルを選択している場合は、左上のセルに入力します。
       </p>
+    </section>
+
+    <section id="postal-panel" class="panel hidden">
+      <h2>郵便番号検索</h2>
+
+      <p class="description">
+        郵便番号セルを選択してください。右隣のセルを住所として扱います。
+      </p>
+
+      <div class="postal-actions">
+        <button id="search-postal" class="primary-button" type="button">
+          住所を検索・入力
+        </button>
+
+        <button id="verify-postal" class="secondary-button" type="button">
+          入力済み住所を確認
+        </button>
+      </div>
+
+      <div
+        id="postal-status"
+        class="postal-status normal"
+        role="status"
+      ></div>
+
+      <div id="postal-results" class="postal-results"></div>
     </section>
   </main>
 </body>
