@@ -166,3 +166,64 @@ input {
   font-size: 12px;
   line-height: 1.5;
 }
+
+.postal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.postal-status {
+  min-height: 20px;
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.postal-status.success {
+  color: #217346;
+  font-weight: 600;
+}
+
+.postal-status.warning {
+  color: #8a5d00;
+}
+
+.postal-status.error {
+  color: #a4262c;
+  font-weight: 600;
+}
+
+.postal-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.postal-candidate {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #217346;
+  border-radius: 3px;
+  color: #217346;
+  text-align: left;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.postal-candidate:hover {
+  color: #ffffff;
+  background-color: #217346;
+}
+
+.postal-candidate.overwrite {
+  border-color: #a4262c;
+  color: #a4262c;
+}
+
+.postal-candidate.overwrite:hover {
+  color: #ffffff;
+  background-color: #a4262c;
+}
