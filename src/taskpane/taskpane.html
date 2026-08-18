@@ -1,0 +1,92 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+<!-- This file shows how to design a first-run page that provides a welcome screen to the user about the features of the add-in. -->
+
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contoso Task Pane Add-in</title>
+
+    <!-- Office JavaScript API -->
+    <script
+      type="text/javascript"
+      src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"
+    ></script>
+
+    <!-- For more information on Fluent UI, visit https://developer.microsoft.com/fluentui#/. -->
+    <link
+      rel="stylesheet"
+      href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"
+    />
+
+    <!-- Template styles -->
+    <link href="taskpane.css" rel="stylesheet" type="text/css" />
+  </head>
+
+<body>
+  <header class="app-header">
+    <h1>Excelユーティリティ</h1>
+  </header>
+
+  <nav class="tab-list" aria-label="機能切替">
+    <button
+      id="tab-sheet"
+      class="tab-button active"
+      type="button"
+      aria-selected="true"
+    >
+      シートナビ
+    </button>
+
+    <button
+      id="tab-calendar"
+      class="tab-button"
+      type="button"
+      aria-selected="false"
+    >
+      カレンダー
+    </button>
+  </nav>
+
+  <main class="app-main">
+    <div id="message" class="message" role="status"></div>
+
+    <section id="sheet-panel" class="panel">
+      <div class="section-header">
+        <h2>シートナビ</h2>
+        <button id="refresh-sheets" class="secondary-button" type="button">
+          更新
+        </button>
+      </div>
+
+      <div id="sheet-list" class="sheet-list"></div>
+    </section>
+
+    <section id="calendar-panel" class="panel hidden">
+      <h2>日付入力</h2>
+
+      <label class="field-label" for="date-input">
+        入力する日付
+      </label>
+
+      <input id="date-input" class="date-input" type="date" />
+
+      <div class="calendar-buttons">
+        <button id="set-today" class="secondary-button" type="button">
+          今日
+        </button>
+
+        <button id="insert-date" class="primary-button" type="button">
+          選択セルに入力
+        </button>
+      </div>
+
+      <p class="description">
+        複数のセルを選択している場合は、左上のセルに入力します。
+      </p>
+    </section>
+  </main>
+</body>
+</html>
