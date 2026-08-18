@@ -2,8 +2,33 @@
 
 /**
  * Excelユーティリティ
- * シート移動と日付入力をタスクペインから行う。
+ * シート移動、日付入力、郵便番号による住所入力をタスクペインから行う。
  */
+
+interface ZipCloudResult {
+  address1: string;
+  address2: string;
+  address3: string;
+  zipcode: string;
+}
+
+interface ZipCloudResponse {
+  message: string | null;
+  results: ZipCloudResult[] | null;
+  status: number;
+}
+
+interface PostalTarget {
+  worksheetName: string;
+  rowIndex: number;
+  columnIndex: number;
+  postalCode: string;
+  currentAddress: string;
+}
+
+type PostalStatusType = "normal" | "success" | "warning" | "error";
+
+let postalTarget: PostalTarget | null = null;
 
 Office.onReady((officeInfo) => {
   if (officeInfo.host !== Office.HostType.Excel) {
@@ -13,6 +38,7 @@ Office.onReady((officeInfo) => {
   initializeTabs();
   initializeSheetNavigator();
   initializeCalendar();
+  initializePostalSearch();
 
   void loadSheets();
 });
@@ -27,6 +53,9 @@ function initializeTabs(): void {
   const calendarTab: HTMLElement | null =
     document.getElementById("tab-calendar");
 
+  const postalTab: HTMLElement | null =
+    document.getElementById("tab-postal");
+
   sheetTab?.addEventListener("click", () => {
     switchPanel("sheet");
     void loadSheets();
@@ -34,6 +63,10 @@ function initializeTabs(): void {
 
   calendarTab?.addEventListener("click", () => {
     switchPanel("calendar");
+  });
+
+  postalTab?.addEventListener("click", () => {
+    switchPanel("postal");
   });
 }
 
@@ -71,38 +104,49 @@ function initializeCalendar(): void {
 }
 
 /**
+ * 郵便番号検索の操作を初期化する。
+ */
+function initializePostalSearch(): void {
+  const searchButton: HTMLElement | null =
+    document.getElementById("search-postal");
+
+  const verifyButton: HTMLElement | null =
+    document.getElementById("verify-postal");
+
+  searchButton?.addEventListener("click", () => {
+    void searchPostalAddress();
+  });
+
+  verifyButton?.addEventListener("click", () => {
+    void verifyPostalAddress();
+  });
+}
+
+/**
  * 表示する機能を切り替える。
  */
-function switchPanel(panelName: "sheet" | "calendar"): void {
-  const sheetPanel: HTMLElement | null =
-    document.getElementById("sheet-panel");
+function switchPanel(
+  panelName: "sheet" | "calendar" | "postal"
+): void {
+  const panelNames: string[] = [
+    "sheet",
+    "calendar",
+    "postal",
+  ];
 
-  const calendarPanel: HTMLElement | null =
-    document.getElementById("calendar-panel");
+  panelNames.forEach((name: string) => {
+    const panel: HTMLElement | null =
+      document.getElementById(`${name}-panel`);
 
-  const sheetTab: HTMLElement | null =
-    document.getElementById("tab-sheet");
+    const tab: HTMLElement | null =
+      document.getElementById(`tab-${name}`);
 
-  const calendarTab: HTMLElement | null =
-    document.getElementById("tab-calendar");
+    const selected: boolean = name === panelName;
 
-  const sheetSelected: boolean = panelName === "sheet";
-
-  sheetPanel?.classList.toggle("hidden", !sheetSelected);
-  calendarPanel?.classList.toggle("hidden", sheetSelected);
-
-  sheetTab?.classList.toggle("active", sheetSelected);
-  calendarTab?.classList.toggle("active", !sheetSelected);
-
-  sheetTab?.setAttribute(
-    "aria-selected",
-    String(sheetSelected)
-  );
-
-  calendarTab?.setAttribute(
-    "aria-selected",
-    String(!sheetSelected)
-  );
+    panel?.classList.toggle("hidden", !selected);
+    tab?.classList.toggle("active", selected);
+    tab?.setAttribute("aria-selected", String(selected));
+  });
 
   setMessage("");
 }
@@ -323,3 +367,420 @@ function handleError(error: unknown): void {
 
   setMessage("処理中にエラーが発生しました。", true);
 }
+
+/**
+ * 選択セルの郵便番号から住所候補を検索する。
+ */
+async function searchPostalAddress(): Promise<void> {
+  clearPostalResults();
+  setPostalStatus("郵便番号を確認しています。");
+
+  try {
+    postalTarget = await readPostalTarget();
+
+    const response: ZipCloudResponse =
+      await requestPostalAddress(postalTarget.postalCode);
+
+    const results: ZipCloudResult[] =
+      getPostalResults(response);
+
+    displayPostalCandidates(results, false);
+
+    if (postalTarget.currentAddress !== "") {
+      setPostalStatus(
+        "右隣のセルには住所が入力されています。候補を選ぶと上書き確認を表示します。",
+        "warning"
+      );
+      return;
+    }
+
+    setPostalStatus("住所候補を選択してください。");
+  } catch (error: unknown) {
+    handlePostalError(error);
+  }
+}
+
+/**
+ * 入力済み住所が郵便番号の住所候補と一致するか確認する。
+ */
+async function verifyPostalAddress(): Promise<void> {
+  clearPostalResults();
+  setPostalStatus("郵便番号と住所を確認しています。");
+
+  try {
+    postalTarget = await readPostalTarget();
+
+    if (postalTarget.currentAddress === "") {
+      throw new Error("右隣の住所セルが空欄です。");
+    }
+
+    const response: ZipCloudResponse =
+      await requestPostalAddress(postalTarget.postalCode);
+
+    const results: ZipCloudResult[] =
+      getPostalResults(response);
+
+    const currentAddress: string =
+      normalizeAddress(postalTarget.currentAddress);
+
+    const matched: boolean = results.some(
+      (result: ZipCloudResult) =>
+        currentAddress.startsWith(
+          normalizeAddress(buildAddress(result))
+        )
+    );
+
+    if (matched) {
+      setPostalStatus(
+        "✓ 郵便番号と住所は一致しています。",
+        "success"
+      );
+      return;
+    }
+
+    setPostalStatus(
+      "郵便番号と住所が一致しません。修正する場合は住所候補を選択してください。",
+      "error"
+    );
+
+    displayPostalCandidates(results, true);
+  } catch (error: unknown) {
+    handlePostalError(error);
+  }
+}
+
+/**
+ * 選択セルと右隣セルの情報を取得する。
+ */
+async function readPostalTarget(): Promise<PostalTarget> {
+  return Excel.run(
+    async (
+      context: Excel.RequestContext
+    ): Promise<PostalTarget> => {
+      const selectedRange: Excel.Range =
+        context.workbook.getSelectedRange();
+
+      const postalCell: Excel.Range =
+        selectedRange.getCell(0, 0);
+
+      const addressCell: Excel.Range =
+        postalCell.getOffsetRange(0, 1);
+
+      const worksheet: Excel.Worksheet =
+        postalCell.worksheet;
+
+      postalCell.load("text,rowIndex,columnIndex");
+      addressCell.load("text");
+      worksheet.load("name");
+
+      await context.sync();
+
+      const postalCode: string =
+        normalizePostalCode(postalCell.text[0][0]);
+
+      if (postalCode.length !== 7) {
+        throw new Error(
+          "選択セルの郵便番号は7桁で入力してください。"
+        );
+      }
+
+      return {
+        worksheetName: worksheet.name,
+        rowIndex: postalCell.rowIndex,
+        columnIndex: postalCell.columnIndex,
+        postalCode,
+        currentAddress: String(
+          addressCell.text[0][0] ?? ""
+        ).trim(),
+      };
+    }
+  );
+}
+
+/**
+ * ZipCloudをJSONPで呼び出す。
+ * 認証情報を持たず、ブラウザーのCORS制限を受けないために使用する。
+ */
+function requestPostalAddress(
+  postalCode: string
+): Promise<ZipCloudResponse> {
+  return new Promise(
+    (
+      resolve: (value: ZipCloudResponse) => void,
+      reject: (reason?: unknown) => void
+    ) => {
+      const callbackName: string =
+        `zipCloudCallback_${Date.now()}_${Math.floor(
+          Math.random() * 100000
+        )}`;
+
+      const script: HTMLScriptElement =
+        document.createElement("script");
+
+      const callbackContainer: Record<string, unknown> =
+        window as unknown as Record<string, unknown>;
+
+      const timeoutId: number = window.setTimeout(() => {
+        cleanup();
+        reject(
+          new Error(
+            "郵便番号検索がタイムアウトしました。"
+          )
+        );
+      }, 10000);
+
+      function cleanup(): void {
+        window.clearTimeout(timeoutId);
+        script.remove();
+        delete callbackContainer[callbackName];
+      }
+
+      callbackContainer[callbackName] = (
+        response: ZipCloudResponse
+      ): void => {
+        cleanup();
+        resolve(response);
+      };
+
+      script.onerror = (): void => {
+        cleanup();
+        reject(
+          new Error(
+            "郵便番号検索サービスへ接続できませんでした。"
+          )
+        );
+      };
+
+      script.src =
+        "https://zipcloud.ibsnet.co.jp/api/search" +
+        `?zipcode=${encodeURIComponent(postalCode)}` +
+        `&callback=${encodeURIComponent(callbackName)}`;
+
+      document.body.appendChild(script);
+    }
+  );
+}
+
+/**
+ * APIレスポンスから利用できる住所候補を取得する。
+ */
+function getPostalResults(
+  response: ZipCloudResponse
+): ZipCloudResult[] {
+  if (response.status !== 200) {
+    throw new Error(
+      response.message ??
+        "郵便番号を検索できませんでした。"
+    );
+  }
+
+  if (
+    response.results === null ||
+    response.results.length === 0
+  ) {
+    throw new Error(
+      "該当する住所が見つかりませんでした。"
+    );
+  }
+
+  return response.results;
+}
+
+/**
+ * 住所候補をボタンとして表示する。
+ */
+function displayPostalCandidates(
+  results: ZipCloudResult[],
+  overwrite: boolean
+): void {
+  const resultContainer: HTMLElement | null =
+    document.getElementById("postal-results");
+
+  if (resultContainer === null) {
+    return;
+  }
+
+  resultContainer.replaceChildren();
+
+  results.forEach((result: ZipCloudResult) => {
+    const address: string = buildAddress(result);
+
+    const button: HTMLButtonElement =
+      document.createElement("button");
+
+    button.type = "button";
+    button.className = overwrite
+      ? "postal-candidate overwrite"
+      : "postal-candidate";
+
+    button.textContent = overwrite
+      ? `上書き：${address}`
+      : address;
+
+    button.addEventListener("click", () => {
+      void writePostalAddress(address, overwrite);
+    });
+
+    resultContainer.appendChild(button);
+  });
+}
+
+/**
+ * 郵便番号と住所を対象セルへ書き込む。
+ */
+async function writePostalAddress(
+  address: string,
+  overwrite: boolean
+): Promise<void> {
+  if (postalTarget === null) {
+    setPostalStatus(
+      "先に郵便番号を検索してください。",
+      "error"
+    );
+    return;
+  }
+
+  try {
+    await Excel.run(async (context: Excel.RequestContext) => {
+      const worksheet: Excel.Worksheet =
+        context.workbook.worksheets.getItem(
+          postalTarget!.worksheetName
+        );
+
+      const postalCell: Excel.Range =
+        worksheet.getCell(
+          postalTarget!.rowIndex,
+          postalTarget!.columnIndex
+        );
+
+      const addressCell: Excel.Range =
+        worksheet.getCell(
+          postalTarget!.rowIndex,
+          postalTarget!.columnIndex + 1
+        );
+
+      addressCell.load("text");
+      await context.sync();
+
+      const existingAddress: string =
+        String(addressCell.text[0][0] ?? "").trim();
+
+      if (existingAddress !== "" && !overwrite) {
+        setPostalStatus(
+          "右隣のセルには住所があります。住所確認を行ってから上書きしてください。",
+          "warning"
+        );
+        return;
+      }
+
+      postalCell.numberFormat = [["@"]];
+      postalCell.values = [[
+        formatPostalCode(postalTarget!.postalCode),
+      ]];
+
+      addressCell.values = [[address]];
+
+      await context.sync();
+    });
+
+    postalTarget.currentAddress = address;
+    clearPostalResults();
+    setPostalStatus(
+      "✓ 郵便番号と住所を入力しました。",
+      "success"
+    );
+  } catch (error: unknown) {
+    handlePostalError(error);
+  }
+}
+
+/**
+ * 全角数字や記号を除去して7桁の郵便番号へ整形する。
+ */
+function normalizePostalCode(value: string): string {
+  const halfWidthValue: string = value.replace(
+    /[０-９]/g,
+    (character: string) =>
+      String.fromCharCode(
+        character.charCodeAt(0) - 0xfee0
+      )
+  );
+
+  return halfWidthValue.replace(/[^0-9]/g, "");
+}
+
+/**
+ * 郵便番号を123-4567形式へ整形する。
+ */
+function formatPostalCode(postalCode: string): string {
+  return (
+    postalCode.slice(0, 3) +
+    "-" +
+    postalCode.slice(3)
+  );
+}
+
+/**
+ * APIの住所項目を1つの住所へ結合する。
+ */
+function buildAddress(result: ZipCloudResult): string {
+  return (
+    result.address1 +
+    result.address2 +
+    result.address3
+  );
+}
+
+/**
+ * 比較に影響しない空白を除去する。
+ */
+function normalizeAddress(address: string): string {
+  return address.replace(/[\\s　]/g, "");
+}
+
+/**
+ * 郵便番号検索の結果表示を初期化する。
+ */
+function clearPostalResults(): void {
+  const resultContainer: HTMLElement | null =
+    document.getElementById("postal-results");
+
+  resultContainer?.replaceChildren();
+}
+
+/**
+ * 郵便番号検索の状態を表示する。
+ */
+function setPostalStatus(
+  message: string,
+  statusType: PostalStatusType = "normal"
+): void {
+  const statusElement: HTMLElement | null =
+    document.getElementById("postal-status");
+
+  if (statusElement === null) {
+    return;
+  }
+
+  statusElement.textContent = message;
+  statusElement.className =
+    `postal-status ${statusType}`;
+}
+
+/**
+ * 郵便番号検索のエラーを表示する。
+ */
+function handlePostalError(error: unknown): void {
+  console.error(error);
+
+  if (error instanceof Error) {
+    setPostalStatus(error.message, "error");
+    return;
+  }
+
+  setPostalStatus(
+    "郵便番号検索中にエラーが発生しました。",
+    "error"
+  );
+}
+
