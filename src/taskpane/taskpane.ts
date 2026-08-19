@@ -35,6 +35,16 @@ interface SheetNavigationItem {
 
 type PostalStatusType = "normal" | "success" | "warning" | "error";
 type PostalCodeFormat = "hyphen" | "plain";
+type DateFormatPreference =
+  | "standard"
+  | "compact"
+  | "japanese"
+  | "iso"
+  | "monthDay"
+  | "preserve";
+
+const DATE_FORMAT_STORAGE_KEY: string =
+  "dateFormat";
 
 const POSTAL_FORMAT_STORAGE_KEY: string =
   "postalCodeFormat";
@@ -42,6 +52,8 @@ const POSTAL_FORMAT_STORAGE_KEY: string =
 let postalTarget: PostalTarget | null = null;
 let sheetNavigationItems: SheetNavigationItem[] = [];
 let activeSheetName: string = "";
+let dateFormatPreference: DateFormatPreference =
+  "standard";
 let postalCodeFormatPreference: PostalCodeFormat =
   "hyphen";
 
@@ -114,6 +126,12 @@ function initializeCalendar(): void {
   const insertButton: HTMLElement | null =
     document.getElementById("insert-date");
 
+  const todayFormulaButton: HTMLElement | null =
+    document.getElementById("insert-today-formula");
+
+  const formatElement: HTMLElement | null =
+    document.getElementById("date-format");
+
   todayButton?.addEventListener("click", () => {
     setToday();
   });
@@ -121,6 +139,25 @@ function initializeCalendar(): void {
   insertButton?.addEventListener("click", () => {
     void insertDate();
   });
+
+  todayFormulaButton?.addEventListener("click", () => {
+    void insertTodayFormula();
+  });
+
+  if (formatElement instanceof HTMLSelectElement) {
+    dateFormatPreference =
+      loadDateFormat();
+
+    formatElement.value =
+      dateFormatPreference;
+
+    formatElement.addEventListener("change", () => {
+      dateFormatPreference =
+        parseDateFormat(formatElement.value);
+
+      saveDateFormat(dateFormatPreference);
+    });
+  }
 
   setToday();
 }
@@ -731,7 +768,11 @@ async function insertDate(): Promise<void> {
         selectedRange.getCell(0, 0);
 
       targetCell.values = [[excelDate]];
-      targetCell.numberFormat = [["yyyy/mm/dd"]];
+
+      await applyDateNumberFormat(
+        context,
+        targetCell
+      );
 
       await context.sync();
     });
@@ -739,6 +780,145 @@ async function insertDate(): Promise<void> {
     setMessage(`${dateInput.value} を入力しました。`);
   } catch (error: unknown) {
     handleError(error);
+  }
+}
+
+/**
+ * 選択範囲の左上セルへTODAY関数を入力する。
+ */
+async function insertTodayFormula(): Promise<void> {
+  try {
+    await Excel.run(async (context: Excel.RequestContext) => {
+      const selectedRange: Excel.Range =
+        context.workbook.getSelectedRange();
+
+      const targetCell: Excel.Range =
+        selectedRange.getCell(0, 0);
+
+      targetCell.formulas = [["=TODAY()"]];
+
+      await applyDateNumberFormat(
+        context,
+        targetCell
+      );
+
+      await context.sync();
+    });
+
+    setMessage(
+      "TODAY関数を入力しました。日付は再計算時に更新されます。"
+    );
+  } catch (error: unknown) {
+    handleError(error);
+  }
+}
+
+/**
+ * 選択した日付形式を対象セルへ適用する。
+ */
+async function applyDateNumberFormat(
+  context: Excel.RequestContext,
+  targetCell: Excel.Range
+): Promise<void> {
+  const numberFormat: string | null =
+    getDateNumberFormat(dateFormatPreference);
+
+  if (numberFormat !== null) {
+    targetCell.numberFormat = [[numberFormat]];
+    return;
+  }
+
+  targetCell.load("numberFormat");
+
+  await context.sync();
+
+  const currentNumberFormat: string =
+    String(targetCell.numberFormat[0][0] ?? "");
+
+  // 標準書式のままだと日付シリアル値が表示されるため、標準形式だけ補正する。
+  if (currentNumberFormat.toLowerCase() === "general") {
+    targetCell.numberFormat = [["yyyy/mm/dd"]];
+  }
+}
+
+/**
+ * 選択値を利用可能な日付形式へ変換する。
+ */
+function parseDateFormat(
+  value: string
+): DateFormatPreference {
+  const availableFormats: DateFormatPreference[] = [
+    "standard",
+    "compact",
+    "japanese",
+    "iso",
+    "monthDay",
+    "preserve",
+  ];
+
+  return availableFormats.includes(
+    value as DateFormatPreference
+  )
+    ? (value as DateFormatPreference)
+    : "standard";
+}
+
+/**
+ * 選択されたExcel表示形式を取得する。
+ */
+function getDateNumberFormat(
+  preference: DateFormatPreference
+): string | null {
+  const numberFormats: Record<
+    Exclude<DateFormatPreference, "preserve">,
+    string
+  > = {
+    standard: "yyyy/mm/dd",
+    compact: "yyyy/m/d",
+    japanese: "yyyy年m月d日",
+    iso: "yyyy-mm-dd",
+    monthDay: "m/d",
+  };
+
+  if (preference === "preserve") {
+    return null;
+  }
+
+  return numberFormats[preference];
+}
+
+/**
+ * 保存済みの日付形式を取得する。
+ */
+function loadDateFormat(): DateFormatPreference {
+  try {
+    const storedFormat: string | null =
+      window.localStorage.getItem(
+        DATE_FORMAT_STORAGE_KEY
+      );
+
+    return parseDateFormat(storedFormat ?? "");
+  } catch {
+    return "standard";
+  }
+}
+
+/**
+ * 日付形式を端末内へ保存する。
+ */
+function saveDateFormat(
+  preference: DateFormatPreference
+): void {
+  try {
+    window.localStorage.setItem(
+      DATE_FORMAT_STORAGE_KEY,
+      preference
+    );
+  } catch {
+    setMessage(
+      "日付形式を記憶できませんでした。この画面では選択した形式を使用します。",
+      true
+    );
   }
 }
 

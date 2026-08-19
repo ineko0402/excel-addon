@@ -278,10 +278,29 @@ select {
   background-color: #ffffff;
 }
 
+.date-format-field {
+  margin-top: 12px;
+}
+
+.date-format-select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #a0a0a0;
+  border-radius: 3px;
+  background-color: #ffffff;
+}
+
 .calendar-buttons {
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+.today-formula-button {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 8px;
 }
 
 .primary-button,

@@ -94,18 +94,42 @@
 
       <input id="date-input" class="date-input" type="date" />
 
+      <div class="date-format-field">
+        <label class="field-label" for="date-format">
+          日付の表示形式
+        </label>
+
+        <select id="date-format" class="date-format-select">
+          <option value="standard">2026/08/19</option>
+          <option value="compact">2026/8/19</option>
+          <option value="japanese">2026年8月19日</option>
+          <option value="iso">2026-08-19</option>
+          <option value="monthDay">8/19</option>
+          <option value="preserve">既存のセル書式を優先</option>
+        </select>
+      </div>
+
       <div class="calendar-buttons">
         <button id="set-today" class="secondary-button" type="button">
-          今日
+          今日を選択
         </button>
 
         <button id="insert-date" class="primary-button" type="button">
-          選択セルに入力
+          選択した日付を入力
         </button>
       </div>
 
+      <button
+        id="insert-today-formula"
+        class="secondary-button today-formula-button"
+        type="button"
+      >
+        TODAY関数を入力
+      </button>
+
       <p class="description">
         複数のセルを選択している場合は、左上のセルに入力します。
+        TODAY関数は再計算時に当日の日付へ更新されます。
       </p>
     </section>
 
