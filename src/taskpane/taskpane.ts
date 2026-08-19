@@ -26,6 +26,12 @@ interface PostalTarget {
   currentAddress: string;
 }
 
+interface SheetNavigationItem {
+  name: string;
+  isVisible: boolean;
+  hasCharts: boolean;
+}
+
 type PostalStatusType = "normal" | "success" | "warning" | "error";
 type PostalCodeFormat = "hyphen" | "plain";
 
@@ -33,6 +39,8 @@ const POSTAL_FORMAT_STORAGE_KEY: string =
   "postalCodeFormat";
 
 let postalTarget: PostalTarget | null = null;
+let sheetNavigationItems: SheetNavigationItem[] = [];
+let activeSheetName: string = "";
 let postalCodeFormatPreference: PostalCodeFormat =
   "hyphen";
 
@@ -83,8 +91,15 @@ function initializeSheetNavigator(): void {
   const refreshButton: HTMLElement | null =
     document.getElementById("refresh-sheets");
 
+  const searchElement: HTMLElement | null =
+    document.getElementById("sheet-search");
+
   refreshButton?.addEventListener("click", () => {
     void loadSheets();
+  });
+
+  searchElement?.addEventListener("input", () => {
+    displaySheets(sheetNavigationItems, activeSheetName);
   });
 }
 
@@ -194,14 +209,34 @@ async function loadSheets(): Promise<void> {
       const activeWorksheet: Excel.Worksheet =
         worksheets.getActiveWorksheet();
 
-      worksheets.load("items/name");
+      worksheets.load("items/name,items/visibility");
       activeWorksheet.load("name");
 
       await context.sync();
 
+      worksheets.items.forEach(
+        (worksheet: Excel.Worksheet) => {
+          worksheet.charts.load("count");
+        }
+      );
+
+      await context.sync();
+
+      sheetNavigationItems = worksheets.items.map(
+        (worksheet: Excel.Worksheet): SheetNavigationItem => ({
+          name: worksheet.name,
+          isVisible:
+            worksheet.visibility ===
+            Excel.SheetVisibility.visible,
+          hasCharts: worksheet.charts.count > 0,
+        })
+      );
+
+      activeSheetName = activeWorksheet.name;
+
       displaySheets(
-        worksheets.items,
-        activeWorksheet.name
+        sheetNavigationItems,
+        activeSheetName
       );
     });
 
@@ -215,36 +250,101 @@ async function loadSheets(): Promise<void> {
  * ワークシート一覧をタスクペインへ表示する。
  */
 function displaySheets(
-  worksheets: Excel.Worksheet[],
-  activeSheetName: string
+  worksheets: SheetNavigationItem[],
+  currentSheetName: string
 ): void {
   const sheetList: HTMLElement | null =
     document.getElementById("sheet-list");
+
+  const searchElement: HTMLElement | null =
+    document.getElementById("sheet-search");
 
   if (sheetList === null) {
     return;
   }
 
+  const searchText: string =
+    searchElement instanceof HTMLInputElement
+      ? searchElement.value.trim().toLocaleLowerCase()
+      : "";
+
+  const filteredWorksheets: SheetNavigationItem[] =
+    worksheets.filter((worksheet: SheetNavigationItem) =>
+      worksheet.name.toLocaleLowerCase().includes(searchText)
+    );
+
   sheetList.replaceChildren();
 
-  worksheets.forEach((worksheet: Excel.Worksheet) => {
-    const sheetButton: HTMLButtonElement =
-      document.createElement("button");
+  if (filteredWorksheets.length === 0) {
+    const emptyMessage: HTMLParagraphElement =
+      document.createElement("p");
 
-    sheetButton.type = "button";
-    sheetButton.textContent = worksheet.name;
-    sheetButton.className = "sheet-item";
+    emptyMessage.className = "sheet-empty";
+    emptyMessage.textContent =
+      "該当するシートがありません。";
 
-    if (worksheet.name === activeSheetName) {
-      sheetButton.classList.add("active");
+    sheetList.appendChild(emptyMessage);
+    return;
+  }
+
+  filteredWorksheets.forEach(
+    (worksheet: SheetNavigationItem) => {
+      const sheetButton: HTMLButtonElement =
+        document.createElement("button");
+
+      const isVisible: boolean =
+        worksheet.isVisible;
+
+      sheetButton.type = "button";
+      sheetButton.className = "sheet-item";
+      sheetButton.disabled = !isVisible;
+
+      if (worksheet.hasCharts) {
+        const chartIcon: HTMLSpanElement =
+          document.createElement("span");
+
+        chartIcon.className = "sheet-icon";
+        chartIcon.textContent = "📊";
+        chartIcon.setAttribute("aria-hidden", "true");
+
+        sheetButton.appendChild(chartIcon);
+      }
+
+      const sheetName: HTMLSpanElement =
+        document.createElement("span");
+
+      sheetName.className = "sheet-name";
+      sheetName.textContent = worksheet.name;
+
+      sheetButton.appendChild(sheetName);
+
+      if (!isVisible) {
+        const hiddenLabel: HTMLSpanElement =
+          document.createElement("span");
+
+        hiddenLabel.className = "sheet-visibility";
+        hiddenLabel.textContent = "非表示";
+
+        sheetButton.classList.add("hidden-sheet");
+        sheetButton.appendChild(hiddenLabel);
+      }
+
+      if (
+        isVisible &&
+        worksheet.name === currentSheetName
+      ) {
+        sheetButton.classList.add("active");
+      }
+
+      if (isVisible) {
+        sheetButton.addEventListener("click", () => {
+          void activateSheet(worksheet.name);
+        });
+      }
+
+      sheetList.appendChild(sheetButton);
     }
-
-    sheetButton.addEventListener("click", () => {
-      void activateSheet(worksheet.name);
-    });
-
-    sheetList.appendChild(sheetButton);
-  });
+  );
 }
 
 /**
@@ -805,7 +905,7 @@ function buildAddress(result: ZipCloudResult): string {
  * 比較に影響しない空白を除去する。
  */
 function normalizeAddress(address: string): string {
-  return address.replace(/[\\s　]/g, "");
+  return address.replace(/[\s　]/g, "");
 }
 
 /**
