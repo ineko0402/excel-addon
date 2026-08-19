@@ -33,6 +33,8 @@ const POSTAL_FORMAT_STORAGE_KEY: string =
   "postalCodeFormat";
 
 let postalTarget: PostalTarget | null = null;
+let postalCodeFormatPreference: PostalCodeFormat =
+  "hyphen";
 
 Office.onReady((officeInfo) => {
   if (officeInfo.host !== Office.HostType.Excel) {
@@ -129,13 +131,20 @@ function initializePostalSearch(): void {
   });
 
   if (formatElement instanceof HTMLSelectElement) {
-    formatElement.value = loadPostalCodeFormat();
+    postalCodeFormatPreference =
+      loadPostalCodeFormat();
+
+    formatElement.value =
+      postalCodeFormatPreference;
 
     formatElement.addEventListener("change", () => {
       const postalCodeFormat: PostalCodeFormat =
         formatElement.value === "plain"
           ? "plain"
           : "hyphen";
+
+      postalCodeFormatPreference =
+        postalCodeFormat;
 
       savePostalCodeFormat(postalCodeFormat);
     });
@@ -733,7 +742,7 @@ function normalizePostalCode(value: string): string {
  * 選択された保存形式で郵便番号を整形する。
  */
 function formatPostalCode(postalCode: string): string {
-  if (loadPostalCodeFormat() === "plain") {
+  if (postalCodeFormatPreference === "plain") {
     return postalCode;
   }
 
