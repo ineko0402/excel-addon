@@ -590,7 +590,22 @@ async function renameSheet(
     return;
   }
 
-  if (/[:\\/?*\[\]]/.test(newSheetName)) {
+  const invalidCharacters: string[] = [
+    ":",
+    "\\",
+    "/",
+    "?",
+    "*",
+    "[",
+    "]",
+  ];
+
+  const hasInvalidCharacter: boolean =
+    invalidCharacters.some((character: string) =>
+      newSheetName.includes(character)
+    );
+
+  if (hasInvalidCharacter) {
     setMessage(
       "シート名に : \\ / ? * [ ] は使用できません。",
       true
