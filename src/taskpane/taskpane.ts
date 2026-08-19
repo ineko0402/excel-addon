@@ -27,8 +27,14 @@ interface PostalTarget {
 }
 
 type PostalStatusType = "normal" | "success" | "warning" | "error";
+type PostalCodeFormat = "hyphen" | "plain";
+
+const POSTAL_FORMAT_STORAGE_KEY: string =
+  "postalCodeFormat";
 
 let postalTarget: PostalTarget | null = null;
+let postalCodeFormatPreference: PostalCodeFormat =
+  "hyphen";
 
 Office.onReady((officeInfo) => {
   if (officeInfo.host !== Office.HostType.Excel) {
@@ -113,6 +119,9 @@ function initializePostalSearch(): void {
   const verifyButton: HTMLElement | null =
     document.getElementById("verify-postal");
 
+  const formatElement: HTMLElement | null =
+    document.getElementById("postal-format");
+
   searchButton?.addEventListener("click", () => {
     void searchPostalAddress();
   });
@@ -120,6 +129,26 @@ function initializePostalSearch(): void {
   verifyButton?.addEventListener("click", () => {
     void verifyPostalAddress();
   });
+
+  if (formatElement instanceof HTMLSelectElement) {
+    postalCodeFormatPreference =
+      loadPostalCodeFormat();
+
+    formatElement.value =
+      postalCodeFormatPreference;
+
+    formatElement.addEventListener("change", () => {
+      const postalCodeFormat: PostalCodeFormat =
+        formatElement.value === "plain"
+          ? "plain"
+          : "hyphen";
+
+      postalCodeFormatPreference =
+        postalCodeFormat;
+
+      savePostalCodeFormat(postalCodeFormat);
+    });
+  }
 }
 
 /**
@@ -710,14 +739,55 @@ function normalizePostalCode(value: string): string {
 }
 
 /**
- * 郵便番号を123-4567形式へ整形する。
+ * 選択された保存形式で郵便番号を整形する。
  */
 function formatPostalCode(postalCode: string): string {
+  if (postalCodeFormatPreference === "plain") {
+    return postalCode;
+  }
+
   return (
     postalCode.slice(0, 3) +
     "-" +
     postalCode.slice(3)
   );
+}
+
+/**
+ * 保存済みの郵便番号形式を取得する。
+ */
+function loadPostalCodeFormat(): PostalCodeFormat {
+  try {
+    const storedFormat: string | null =
+      window.localStorage.getItem(
+        POSTAL_FORMAT_STORAGE_KEY
+      );
+
+    return storedFormat === "plain"
+      ? "plain"
+      : "hyphen";
+  } catch {
+    return "hyphen";
+  }
+}
+
+/**
+ * 郵便番号形式を端末内へ保存する。
+ */
+function savePostalCodeFormat(
+  postalCodeFormat: PostalCodeFormat
+): void {
+  try {
+    window.localStorage.setItem(
+      POSTAL_FORMAT_STORAGE_KEY,
+      postalCodeFormat
+    );
+  } catch {
+    setPostalStatus(
+      "保存形式を記憶できませんでした。この画面では選択した形式を使用します。",
+      "warning"
+    );
+  }
 }
 
 /**
