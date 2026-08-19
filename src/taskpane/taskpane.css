@@ -6,7 +6,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -226,4 +227,17 @@ input {
 .postal-candidate.overwrite:hover {
   color: #ffffff;
   background-color: #a4262c;
+}
+
+.postal-format-field {
+  margin-top: 12px;
+}
+
+.postal-format-select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #a0a0a0;
+  border-radius: 3px;
+  background-color: #ffffff;
 }
