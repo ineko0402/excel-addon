@@ -28,7 +28,7 @@ interface PostalTarget {
 
 interface SheetNavigationItem {
   name: string;
-  visibility: Excel.SheetVisibility;
+  isVisible: boolean;
   hasCharts: boolean;
 }
 
@@ -225,7 +225,9 @@ async function loadSheets(): Promise<void> {
       sheetNavigationItems = worksheets.items.map(
         (worksheet: Excel.Worksheet): SheetNavigationItem => ({
           name: worksheet.name,
-          visibility: worksheet.visibility,
+          isVisible:
+            worksheet.visibility ===
+            Excel.SheetVisibility.visible,
           hasCharts: worksheet.charts.count > 0,
         })
       );
@@ -291,8 +293,7 @@ function displaySheets(
         document.createElement("button");
 
       const isVisible: boolean =
-        worksheet.visibility ===
-        Excel.SheetVisibility.visible;
+        worksheet.isVisible;
 
       sheetButton.type = "button";
       sheetButton.className = "sheet-item";
