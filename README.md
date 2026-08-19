@@ -81,8 +81,10 @@ npm run build
 
 `main`ブランチへのpushを契機に、GitHub Actionsが型検査、マニフェスト検証、Webpackビルドを実行し、`dist`をGitHub Pagesへ公開します。
 
-- 公開ページ: https://ineko0402.github.io/excel-addon/
+- 導入・ダウンロードページ: https://ineko0402.github.io/excel-addon/
 - 公開用マニフェスト: https://ineko0402.github.io/excel-addon/manifest.xml
+
+導入ページの「manifest.xmlをダウンロード」ボタンから、公開用マニフェストをファイルとして保存できます。直接URLを開いた場合は、内容確認のためブラウザーにXMLが表示されます。
 
 ローカル開発では`https://localhost:3000/`を使用し、本番ビルド時だけGitHub PagesのURLへ変換します。
 
