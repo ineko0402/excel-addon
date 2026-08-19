@@ -29,6 +29,7 @@ interface PostalTarget {
 interface SheetNavigationItem {
   name: string;
   isVisible: boolean;
+  isVeryHidden: boolean;
   hasCharts: boolean;
 }
 
@@ -228,6 +229,9 @@ async function loadSheets(): Promise<void> {
           isVisible:
             worksheet.visibility ===
             Excel.SheetVisibility.visible,
+          isVeryHidden:
+            worksheet.visibility ===
+            Excel.SheetVisibility.veryHidden,
           hasCharts: worksheet.charts.count > 0,
         })
       );
@@ -289,15 +293,27 @@ function displaySheets(
 
   filteredWorksheets.forEach(
     (worksheet: SheetNavigationItem) => {
+      const sheetRow: HTMLDivElement =
+        document.createElement("div");
+
       const sheetButton: HTMLButtonElement =
         document.createElement("button");
 
-      const isVisible: boolean =
-        worksheet.isVisible;
+      const menuButton: HTMLButtonElement =
+        document.createElement("button");
+
+      const actionPanel: HTMLDivElement =
+        createSheetActionPanel(worksheet);
+
+      sheetRow.className = "sheet-row";
+
+      if (!worksheet.isVisible) {
+        sheetRow.classList.add("hidden-sheet");
+      }
 
       sheetButton.type = "button";
       sheetButton.className = "sheet-item";
-      sheetButton.disabled = !isVisible;
+      sheetButton.disabled = !worksheet.isVisible;
 
       if (worksheet.hasCharts) {
         const chartIcon: HTMLSpanElement =
@@ -318,33 +334,329 @@ function displaySheets(
 
       sheetButton.appendChild(sheetName);
 
-      if (!isVisible) {
+      if (!worksheet.isVisible) {
         const hiddenLabel: HTMLSpanElement =
           document.createElement("span");
 
         hiddenLabel.className = "sheet-visibility";
-        hiddenLabel.textContent = "非表示";
+        hiddenLabel.textContent = worksheet.isVeryHidden
+          ? "特殊非表示"
+          : "非表示";
 
-        sheetButton.classList.add("hidden-sheet");
         sheetButton.appendChild(hiddenLabel);
       }
 
       if (
-        isVisible &&
+        worksheet.isVisible &&
         worksheet.name === currentSheetName
       ) {
         sheetButton.classList.add("active");
       }
 
-      if (isVisible) {
+      if (worksheet.isVisible) {
         sheetButton.addEventListener("click", () => {
           void activateSheet(worksheet.name);
         });
       }
 
-      sheetList.appendChild(sheetButton);
+      menuButton.type = "button";
+      menuButton.className = "sheet-menu-button";
+      menuButton.textContent = "…";
+      menuButton.title =
+        `${worksheet.name}の設定`;
+      menuButton.setAttribute("aria-label", menuButton.title);
+      menuButton.setAttribute("aria-expanded", "false");
+
+      menuButton.addEventListener("click", () => {
+        const isOpening: boolean =
+          actionPanel.classList.contains("hidden");
+
+        closeSheetActionPanels();
+
+        if (isOpening) {
+          actionPanel.classList.remove("hidden");
+          menuButton.setAttribute("aria-expanded", "true");
+        }
+      });
+
+      sheetRow.appendChild(sheetButton);
+      sheetRow.appendChild(menuButton);
+      sheetRow.appendChild(actionPanel);
+      sheetList.appendChild(sheetRow);
     }
   );
+}
+
+/**
+ * シート設定欄を作成する。
+ */
+function createSheetActionPanel(
+  worksheet: SheetNavigationItem
+): HTMLDivElement {
+  const actionPanel: HTMLDivElement =
+    document.createElement("div");
+
+  const visibilityButton: HTMLButtonElement =
+    document.createElement("button");
+
+  const renameGroup: HTMLDivElement =
+    document.createElement("div");
+
+  const renameInput: HTMLInputElement =
+    document.createElement("input");
+
+  const renameButton: HTMLButtonElement =
+    document.createElement("button");
+
+  actionPanel.className =
+    "sheet-action-panel hidden";
+
+  visibilityButton.type = "button";
+  visibilityButton.className =
+    "sheet-action-button";
+  visibilityButton.textContent = worksheet.isVisible
+    ? "非表示にする"
+    : "表示する";
+
+  if (worksheet.isVeryHidden) {
+    visibilityButton.disabled = true;
+    visibilityButton.textContent =
+      "特殊非表示は変更できません";
+  } else {
+    visibilityButton.addEventListener("click", () => {
+      void changeSheetVisibility(
+        worksheet.name,
+        !worksheet.isVisible
+      );
+    });
+  }
+
+  renameGroup.className = "sheet-rename-group";
+
+  renameInput.type = "text";
+  renameInput.className = "sheet-rename-input";
+  renameInput.value = worksheet.name;
+  renameInput.maxLength = 31;
+  renameInput.setAttribute(
+    "aria-label",
+    `${worksheet.name}の新しいシート名`
+  );
+
+  renameButton.type = "button";
+  renameButton.className = "sheet-action-button";
+  renameButton.textContent = "名前を変更";
+
+  const renameHandler = (): void => {
+    void renameSheet(
+      worksheet.name,
+      renameInput.value
+    );
+  };
+
+  renameButton.addEventListener(
+    "click",
+    renameHandler
+  );
+
+  renameInput.addEventListener(
+    "keydown",
+    (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        renameHandler();
+      }
+    }
+  );
+
+  renameGroup.appendChild(renameInput);
+  renameGroup.appendChild(renameButton);
+  actionPanel.appendChild(visibilityButton);
+  actionPanel.appendChild(renameGroup);
+
+  return actionPanel;
+}
+
+/**
+ * 開いているシート設定欄を閉じる。
+ */
+function closeSheetActionPanels(): void {
+  document
+    .querySelectorAll(".sheet-action-panel")
+    .forEach((panel: Element) => {
+      panel.classList.add("hidden");
+    });
+
+  document
+    .querySelectorAll(".sheet-menu-button")
+    .forEach((button: Element) => {
+      button.setAttribute("aria-expanded", "false");
+    });
+}
+
+/**
+ * シートの表示状態を変更する。
+ */
+async function changeSheetVisibility(
+  sheetName: string,
+  shouldShow: boolean
+): Promise<void> {
+  try {
+    await Excel.run(async (context: Excel.RequestContext) => {
+      const worksheets: Excel.WorksheetCollection =
+        context.workbook.worksheets;
+
+      const targetWorksheet: Excel.Worksheet =
+        worksheets.getItem(sheetName);
+
+      if (shouldShow) {
+        targetWorksheet.visibility =
+          Excel.SheetVisibility.visible;
+
+        await context.sync();
+        return;
+      }
+
+      const activeWorksheet: Excel.Worksheet =
+        worksheets.getActiveWorksheet();
+
+      worksheets.load("items/name,items/visibility");
+      activeWorksheet.load("name");
+
+      await context.sync();
+
+      const visibleWorksheets: Excel.Worksheet[] =
+        worksheets.items.filter(
+          (worksheet: Excel.Worksheet) =>
+            worksheet.visibility ===
+            Excel.SheetVisibility.visible
+        );
+
+      if (visibleWorksheets.length <= 1) {
+        throw new Error(
+          "最後の表示シートは非表示にできません。"
+        );
+      }
+
+      if (activeWorksheet.name === sheetName) {
+        const nextWorksheet: Excel.Worksheet | undefined =
+          visibleWorksheets.find(
+            (worksheet: Excel.Worksheet) =>
+              worksheet.name !== sheetName
+          );
+
+        nextWorksheet?.activate();
+      }
+
+      targetWorksheet.visibility =
+        Excel.SheetVisibility.hidden;
+
+      await context.sync();
+    });
+
+    await loadSheets();
+
+    setMessage(
+      shouldShow
+        ? `${sheetName} を表示しました。`
+        : `${sheetName} を非表示にしました。`
+    );
+  } catch (error: unknown) {
+    handleError(error);
+  }
+}
+
+/**
+ * 入力内容を検証してシート名を変更する。
+ */
+async function renameSheet(
+  currentSheetName: string,
+  inputSheetName: string
+): Promise<void> {
+  const newSheetName: string =
+    inputSheetName.trim();
+
+  if (newSheetName === "") {
+    setMessage(
+      "シート名を入力してください。",
+      true
+    );
+    return;
+  }
+
+  if (newSheetName.length > 31) {
+    setMessage(
+      "シート名は31文字以内で入力してください。",
+      true
+    );
+    return;
+  }
+
+  const invalidCharacters: string[] = [
+    ":",
+    "\\",
+    "/",
+    "?",
+    "*",
+    "[",
+    "]",
+  ];
+
+  const hasInvalidCharacter: boolean =
+    invalidCharacters.some((character: string) =>
+      newSheetName.includes(character)
+    );
+
+  if (hasInvalidCharacter) {
+    setMessage(
+      "シート名に : \\ / ? * [ ] は使用できません。",
+      true
+    );
+    return;
+  }
+
+  if (newSheetName === currentSheetName) {
+    closeSheetActionPanels();
+    return;
+  }
+
+  try {
+    await Excel.run(async (context: Excel.RequestContext) => {
+      const worksheets: Excel.WorksheetCollection =
+        context.workbook.worksheets;
+
+      worksheets.load("items/name");
+
+      await context.sync();
+
+      const duplicateExists: boolean =
+        worksheets.items.some(
+          (worksheet: Excel.Worksheet) =>
+            worksheet.name !== currentSheetName &&
+            worksheet.name.toLocaleLowerCase() ===
+              newSheetName.toLocaleLowerCase()
+        );
+
+      if (duplicateExists) {
+        throw new Error(
+          "同じ名前のシートが既にあります。"
+        );
+      }
+
+      const worksheet: Excel.Worksheet =
+        worksheets.getItem(currentSheetName);
+
+      worksheet.name = newSheetName;
+
+      await context.sync();
+    });
+
+    await loadSheets();
+
+    setMessage(
+      `${currentSheetName} を ${newSheetName} に変更しました。`
+    );
+  } catch (error: unknown) {
+    handleError(error);
+  }
 }
 
 /**
