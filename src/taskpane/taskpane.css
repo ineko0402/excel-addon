@@ -120,6 +120,12 @@ select {
   scrollbar-gutter: stable;
 }
 
+.sheet-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 0;
+}
+
 .sheet-item {
   display: flex;
   align-items: center;
@@ -129,7 +135,8 @@ select {
   min-height: 32px;
   padding: 5px 8px;
   border: 1px solid #d0d0d0;
-  border-radius: 3px;
+  border-right: none;
+  border-radius: 3px 0 0 3px;
   color: #242424;
   text-align: left;
   background-color: #ffffff;
@@ -147,12 +154,28 @@ select {
   font-weight: 600;
 }
 
-.sheet-item.hidden-sheet,
-.sheet-item.hidden-sheet:hover {
+.sheet-row.hidden-sheet .sheet-item,
+.sheet-row.hidden-sheet .sheet-item:hover {
   color: #777777;
   background-color: #eeeeee;
   cursor: not-allowed;
   opacity: 1;
+}
+
+.sheet-menu-button {
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid #d0d0d0;
+  border-radius: 0 3px 3px 0;
+  color: #444444;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.sheet-menu-button:hover,
+.sheet-menu-button[aria-expanded="true"] {
+  color: #217346;
+  background-color: #f0f6f3;
 }
 
 .sheet-icon {
@@ -172,6 +195,64 @@ select {
   flex: 0 0 auto;
   color: #777777;
   font-size: 11px;
+}
+
+.sheet-action-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #d0d0d0;
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  background-color: #f7f7f7;
+}
+
+.sheet-action-panel.hidden {
+  display: none;
+}
+
+.sheet-action-button {
+  padding: 6px 8px;
+  border: 1px solid #217346;
+  border-radius: 3px;
+  color: #217346;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.sheet-action-button:hover {
+  color: #ffffff;
+  background-color: #217346;
+}
+
+.sheet-action-button:disabled,
+.sheet-action-button:disabled:hover {
+  border-color: #b0b0b0;
+  color: #777777;
+  background-color: #eeeeee;
+  cursor: not-allowed;
+}
+
+.sheet-rename-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.sheet-rename-input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #a0a0a0;
+  border-radius: 3px;
+}
+
+.sheet-rename-input:focus {
+  border-color: #217346;
+  outline: 1px solid #217346;
 }
 
 .sheet-empty {
