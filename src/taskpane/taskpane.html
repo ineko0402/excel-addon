@@ -63,6 +63,15 @@
     >
       郵便番号
     </button>
+
+    <button
+      id="tab-settings"
+      class="tab-button"
+      type="button"
+      aria-selected="false"
+    >
+      設定
+    </button>
   </nav>
 
   <main class="app-main">
@@ -140,10 +149,11 @@
     </section>
 
     <section id="postal-panel" class="panel hidden">
-      <h2>郵便番号検索</h2>
+      <h2>郵便番号検索・簡易確認</h2>
 
       <p class="description">
         郵便番号セルを選択してください。右隣のセルを住所として扱います。
+        住所確認は郵便番号の候補との先頭一致による簡易確認です。
       </p>
 
       <div class="postal-format-field">
@@ -163,7 +173,7 @@
         </button>
 
         <button id="verify-postal" class="secondary-button" type="button">
-          入力済み住所を確認
+          入力済み住所を簡易確認
         </button>
       </div>
 
@@ -174,6 +184,29 @@
       ></div>
 
       <div id="postal-results" class="postal-results"></div>
+    </section>
+
+    <section id="settings-panel" class="panel hidden">
+      <h2>設定</h2>
+
+      <p class="description">
+        日付形式と郵便番号形式を初期状態へ戻します。
+      </p>
+
+      <button
+        id="reset-settings"
+        class="secondary-button reset-settings-button"
+        type="button"
+      >
+        設定を初期状態に戻す
+      </button>
+
+      <p id="app-version" class="version-text"></p>
+
+      <p class="description">
+        郵便番号検索は外部サービスのZipCloudを利用します。
+        サービス停止中でもシートナビと日付入力は利用できます。
+      </p>
     </section>
   </main>
 </body>
