@@ -39,6 +39,8 @@ select {
 
 .tab-button {
   flex: 1;
+  min-width: 0;
+  font-size: 12px;
   padding: 10px 8px;
   border: none;
   border-bottom: 3px solid transparent;
@@ -420,4 +422,16 @@ select {
   border: 1px solid #a0a0a0;
   border-radius: 3px;
   background-color: #ffffff;
+}
+
+
+.reset-settings-button {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.version-text {
+  margin: 16px 0 0;
+  color: #666666;
+  font-size: 12px;
 }
