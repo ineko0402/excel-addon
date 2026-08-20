@@ -1,5 +1,14 @@
 /* global Office, Excel */
 
+import {
+  PostalCodeFormat,
+  convertToExcelDate,
+  formatPostalCode,
+  getSheetNameValidationError,
+  normalizeAddress,
+  normalizePostalCode,
+} from "./utils";
+
 /**
  * Excelユーティリティ
  * シート移動、日付入力、郵便番号による住所入力をタスクペインから行う。
@@ -34,7 +43,6 @@ interface SheetNavigationItem {
 }
 
 type PostalStatusType = "normal" | "success" | "warning" | "error";
-type PostalCodeFormat = "hyphen" | "plain";
 type DateFormatPreference =
   | "standard"
   | "compact"
@@ -42,6 +50,8 @@ type DateFormatPreference =
   | "iso"
   | "monthDay"
   | "preserve";
+
+const APP_VERSION: string = "1.0.1";
 
 const DATE_FORMAT_STORAGE_KEY: string =
   "dateFormat";
@@ -66,6 +76,7 @@ Office.onReady((officeInfo) => {
   initializeSheetNavigator();
   initializeCalendar();
   initializePostalSearch();
+  initializeSettings();
 
   void loadSheets();
 });
@@ -83,6 +94,9 @@ function initializeTabs(): void {
   const postalTab: HTMLElement | null =
     document.getElementById("tab-postal");
 
+  const settingsTab: HTMLElement | null =
+    document.getElementById("tab-settings");
+
   sheetTab?.addEventListener("click", () => {
     switchPanel("sheet");
     void loadSheets();
@@ -94,6 +108,10 @@ function initializeTabs(): void {
 
   postalTab?.addEventListener("click", () => {
     switchPanel("postal");
+  });
+
+  settingsTab?.addEventListener("click", () => {
+    switchPanel("settings");
   });
 }
 
@@ -205,15 +223,78 @@ function initializePostalSearch(): void {
 }
 
 /**
+ * 設定画面を初期化する。
+ */
+function initializeSettings(): void {
+  const resetButton: HTMLElement | null =
+    document.getElementById("reset-settings");
+
+  const versionElement: HTMLElement | null =
+    document.getElementById("app-version");
+
+  if (versionElement !== null) {
+    versionElement.textContent =
+      `バージョン ${APP_VERSION}`;
+  }
+
+  resetButton?.addEventListener("click", () => {
+    resetSettings();
+  });
+}
+
+/**
+ * 端末内に保存した設定を初期状態へ戻す。
+ */
+function resetSettings(): void {
+  try {
+    window.localStorage.removeItem(
+      DATE_FORMAT_STORAGE_KEY
+    );
+
+    window.localStorage.removeItem(
+      POSTAL_FORMAT_STORAGE_KEY
+    );
+
+    dateFormatPreference = "standard";
+    postalCodeFormatPreference = "hyphen";
+
+    const dateFormatElement: HTMLElement | null =
+      document.getElementById("date-format");
+
+    const postalFormatElement: HTMLElement | null =
+      document.getElementById("postal-format");
+
+    if (dateFormatElement instanceof HTMLSelectElement) {
+      dateFormatElement.value = "standard";
+    }
+
+    if (postalFormatElement instanceof HTMLSelectElement) {
+      postalFormatElement.value = "hyphen";
+    }
+
+    postalTarget = null;
+    clearPostalResults();
+    setPostalStatus("");
+    setMessage("設定を初期状態に戻しました。");
+  } catch {
+    setMessage(
+      "設定を初期化できませんでした。",
+      true
+    );
+  }
+}
+
+/**
  * 表示する機能を切り替える。
  */
 function switchPanel(
-  panelName: "sheet" | "calendar" | "postal"
+  panelName: "sheet" | "calendar" | "postal" | "settings"
 ): void {
   const panelNames: string[] = [
     "sheet",
     "calendar",
     "postal",
+    "settings",
   ];
 
   panelNames.forEach((name: string) => {
@@ -611,42 +692,11 @@ async function renameSheet(
   const newSheetName: string =
     inputSheetName.trim();
 
-  if (newSheetName === "") {
-    setMessage(
-      "シート名を入力してください。",
-      true
-    );
-    return;
-  }
+  const validationError: string | null =
+    getSheetNameValidationError(newSheetName);
 
-  if (newSheetName.length > 31) {
-    setMessage(
-      "シート名は31文字以内で入力してください。",
-      true
-    );
-    return;
-  }
-
-  const invalidCharacters: string[] = [
-    ":",
-    "\\",
-    "/",
-    "?",
-    "*",
-    "[",
-    "]",
-  ];
-
-  const hasInvalidCharacter: boolean =
-    invalidCharacters.some((character: string) =>
-      newSheetName.includes(character)
-    );
-
-  if (hasInvalidCharacter) {
-    setMessage(
-      "シート名に : \\ / ? * [ ] は使用できません。",
-      true
-    );
+  if (validationError !== null) {
+    setMessage(validationError, true);
     return;
   }
 
@@ -923,27 +973,6 @@ function saveDateFormat(
 }
 
 /**
- * YYYY-MM-DDをExcelの日付シリアル値へ変換する。
- */
-function convertToExcelDate(dateText: string): number {
-  const dateParts: number[] =
-    dateText.split("-").map(Number);
-
-  const year: number = dateParts[0];
-  const month: number = dateParts[1];
-  const day: number = dateParts[2];
-
-  // UTCで計算し、タイムゾーンや夏時間による日付のずれを防止する。
-  const milliseconds: number =
-    Date.UTC(year, month - 1, day);
-
-  const millisecondsPerDay: number =
-    24 * 60 * 60 * 1000;
-
-  return milliseconds / millisecondsPerDay + 25569;
-}
-
-/**
  * 日付入力欄を取得する。
  */
 function getDateInput(): HTMLInputElement | null {
@@ -1053,14 +1082,14 @@ async function verifyPostalAddress(): Promise<void> {
 
     if (matched) {
       setPostalStatus(
-        "✓ 郵便番号と住所は一致しています。",
+        "✓ 郵便番号と住所は簡易確認で一致しました。",
         "success"
       );
       return;
     }
 
     setPostalStatus(
-      "郵便番号と住所が一致しません。修正する場合は住所候補を選択してください。",
+      "簡易確認では郵便番号と住所が一致しません。修正する場合は住所候補を選択してください。",
       "error"
     );
 
@@ -1145,7 +1174,7 @@ function requestPostalAddress(
         cleanup();
         reject(
           new Error(
-            "郵便番号検索がタイムアウトしました。"
+            "郵便番号検索がタイムアウトしました。時間を置いて再度お試しください。シートナビと日付入力は引き続き利用できます。"
           )
         );
       }, 10000);
@@ -1167,7 +1196,7 @@ function requestPostalAddress(
         cleanup();
         reject(
           new Error(
-            "郵便番号検索サービスへ接続できませんでした。"
+            "郵便番号検索サービスへ接続できません。通信環境を確認し、時間を置いて再度お試しください。シートナビと日付入力は引き続き利用できます。"
           )
         );
       };
@@ -1296,7 +1325,10 @@ async function writePostalAddress(
 
       postalCell.numberFormat = [["@"]];
       postalCell.values = [[
-        formatPostalCode(postalTarget!.postalCode),
+        formatPostalCode(
+          postalTarget!.postalCode,
+          postalCodeFormatPreference
+        ),
       ]];
 
       addressCell.values = [[address]];
@@ -1313,36 +1345,6 @@ async function writePostalAddress(
   } catch (error: unknown) {
     handlePostalError(error);
   }
-}
-
-/**
- * 全角数字や記号を除去して7桁の郵便番号へ整形する。
- */
-function normalizePostalCode(value: string): string {
-  const halfWidthValue: string = value.replace(
-    /[０-９]/g,
-    (character: string) =>
-      String.fromCharCode(
-        character.charCodeAt(0) - 0xfee0
-      )
-  );
-
-  return halfWidthValue.replace(/[^0-9]/g, "");
-}
-
-/**
- * 選択された保存形式で郵便番号を整形する。
- */
-function formatPostalCode(postalCode: string): string {
-  if (postalCodeFormatPreference === "plain") {
-    return postalCode;
-  }
-
-  return (
-    postalCode.slice(0, 3) +
-    "-" +
-    postalCode.slice(3)
-  );
 }
 
 /**
@@ -1391,13 +1393,6 @@ function buildAddress(result: ZipCloudResult): string {
     result.address2 +
     result.address3
   );
-}
-
-/**
- * 比較に影響しない空白を除去する。
- */
-function normalizeAddress(address: string): string {
-  return address.replace(/[\s　]/g, "");
 }
 
 /**
