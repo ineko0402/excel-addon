@@ -2,6 +2,8 @@
 
 Excelの操作を補助するOffice Add-inです。TypeScriptとOffice JavaScript APIで作成しています。
 
+現在の公開版: **1.0.1**
+
 ## 機能
 
 - シート一覧のコンパクト表示とシート名検索
@@ -17,7 +19,8 @@ Excelの操作を補助するOffice Add-inです。TypeScriptとOffice JavaScrip
 - 選択セルへTODAY関数を入力
 - 選択した郵便番号セルから住所候補を検索
 - 右隣の住所セルへ候補を入力
-- 入力済みの郵便番号と住所を照合
+- 入力済みの郵便番号と住所を簡易確認
+- 保存した日付・郵便番号形式を設定画面から初期化
 
 ## 日付入力
 
@@ -36,9 +39,18 @@ Excelの操作を補助するOffice Add-inです。TypeScriptとOffice JavaScrip
 - 郵便番号はハイフンあり・なし、全角・半角に対応
 - 郵便番号は文字列の`123-4567`または`1234567`形式を選択して保存
 - 既存住所は自動で上書きしない
-- 入力済み住所は、郵便番号の住所候補との先頭一致で確認
+- 入力済み住所は、郵便番号の住所候補との先頭一致で簡易確認
 - 番地や建物名が続く住所も一致として扱う
 - 選択した保存形式は端末内に保存し、次回起動時も維持
+- ZipCloudの停止や通信障害中でも、シートナビと日付入力は利用可能
+
+## 設定の初期化
+
+設定タブの「設定を初期状態に戻す」で、端末内に保存した日付形式と郵便番号形式を初期値へ戻せます。シートやセルの内容は変更しません。
+
+## 郵便番号確認の範囲
+
+住所確認は、ZipCloudが返す都道府県・市区町村・町域と入力済み住所の先頭一致による簡易確認です。番地・建物名、事業所固有の住所、表記揺れまで保証する完全な住所検証ではありません。
 
 ## 必要環境
 
@@ -73,13 +85,14 @@ npm stop
 
 ```powershell
 npm run typecheck
+npm test
 npm run validate
 npm run build
 ```
 
 ## 公開
 
-`main`ブランチへのpushを契機に、GitHub Actionsが型検査、マニフェスト検証、Webpackビルドを実行し、`dist`をGitHub Pagesへ公開します。
+`main`ブランチへのpushを契機に、GitHub Actionsが型検査、単体テスト、マニフェスト検証、Webpackビルドを実行し、`dist`をGitHub Pagesへ公開します。
 
 - 導入・ダウンロードページ: https://ineko0402.github.io/excel-addon/
 - 公開用マニフェスト: https://ineko0402.github.io/excel-addon/manifest.xml

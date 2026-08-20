@@ -1,6 +1,6 @@
 {
   "name": "excel-addon",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/ineko0402/excel-addon.git"
@@ -24,7 +24,8 @@
     "stop": "office-addin-debugging stop manifest.xml",
     "validate": "office-addin-manifest validate manifest.xml",
     "watch": "webpack --mode development --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test tests/*.test.cjs"
   },
   "dependencies": {
     "core-js": "^3.36.0",
